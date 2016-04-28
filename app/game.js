@@ -37,27 +37,34 @@ class Listeners {
     var x = (e.clientX - rect.left)
     var y = (e.clientY - rect.top)
     var msg = x + ", " + y
+    var piece = undefined
     for(var row = 0; row < board.rows; row++) {
       for(var col = 0; col < board.columns; col++) {
         var tile = board.tiles[row][col]
         tile.highlight = tile.entered(x,y)
-        if(tile.highlight && tile.piece !== undefined) {
-          msg += " PIECE DETECTED"
+        if(tile.piece !== undefined && tile.piece.clicked) {
+          piece = tile.piece
         }
       }
+    }
+    if(piece !== undefined) {
+      piece.x = x
+      piece.y = y
     }
     info.innerHTML = msg
   }
 
   mouseClick(e) {
-    console.log("clicked")
     var rect = this.getBoundingClientRect()
     var x = (e.clientX - rect.left)
     var y = (e.clientY - rect.top)
     for(var row = 0; row < board.rows; row++) {
       for(var col = 0; col < board.columns; col++) {
         var tile = board.tiles[row][col]
-        tile.clicked = tile.entered(x,y)
+        tile.clicked = tile.clicked ? false : tile.entered(x,y)
+        if(tile.piece !== undefined) {
+          tile.piece.clicked = tile.clicked
+        }
       }
     }
   }
@@ -69,6 +76,7 @@ class Board {
     this.canvas = canvas
     this.rows = rows
     this.columns = columns
+    this.tile_size = tile_size
     this.tiles = new Array(rows)
     for( var row = 0; row < rows; row++ ) {
       this.tiles[row] = new Array(columns)
@@ -102,7 +110,7 @@ class Board {
           if(row % 2 != 0) {
             col++
           }
-          var piece = new Piece(row, col, color, player)
+          var piece = new Piece(col * this.tile_size + this.tile_size / 2, row * this.tile_size + this.tile_size / 2, color, player)
           this.tiles[row][col].piece = piece
         }
         row = row + row_step
@@ -136,11 +144,15 @@ class Board {
           this.ctx.strokeStyle = "orange"
           this.ctx.stroke()
         }
-
+      }
+    }
+    for ( var row = 0; row < this.rows; row++ ) {
+      for ( var col = 0; col < this.columns; col++ ) {
+        var tile = this.tiles[row][col]
         if (tile.piece !== undefined) {
           var piece = tile.piece
           this.ctx.beginPath()
-          this.ctx.arc(piece.col * tile.size + tile.size / 2, piece.row * tile.size + tile.size / 2, tile.size / 2.5, 2 * Math.PI, false)
+          this.ctx.arc(piece.x, piece.y, tile.size / 2.5, 2 * Math.PI, false)
           this.ctx.fillStyle = piece.color
           this.ctx.fill()
           /*
@@ -155,11 +167,12 @@ class Board {
 }
 
 class Piece {
-  constructor(row, col, color, player) {
-    this.row = row
-    this.col = col
+  constructor(x, y, color, player) {
+    this.x = x
+    this.y = y
     this.color = color
     this.player = player
+    this.clicked = false
   }
 }
 
