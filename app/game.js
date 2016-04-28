@@ -56,7 +56,7 @@ class Board {
             col++
           }
           var piece = new Piece(row, col, color, player)
-          this.tiles[col][row].piece = piece
+          this.tiles[row][col].piece = piece
         }
         row = row + row_step
       }
@@ -64,18 +64,18 @@ class Board {
   }
 
   removePieces() {
-    for(var col = 0; col < this.columns; col++) {
-      for(var row = 0; row < this.columns; row++) {
-        this.tiles[col][row].piece = undefined
+    for(var row = 0; row < this.rows; row++) {
+      for(var col = 0; col < this.columns; col++) {
+        this.tiles[row][col].piece = undefined
       }
     }
   }
 
   draw() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    for ( var col = 0; col < this.columns; col++ ) {
-      for ( var row = 0; row < this.rows; row++ ) {
-        var tile = this.tiles[col][row]
+    for ( var row = 0; row < this.rows; row++ ) {
+      for ( var col = 0; col < this.columns; col++ ) {
+        var tile = this.tiles[row][col]
         this.ctx.beginPath()
         this.ctx.rect(tile.x, tile.y, tile.size, tile.size)
         this.ctx.fillStyle = tile.color
@@ -84,7 +84,7 @@ class Board {
         if (tile.piece !== undefined) {
           var piece = tile.piece
           this.ctx.beginPath()
-          this.ctx.arc(piece.row * tile.size + tile.size / 2, piece.col * tile.size + tile.size / 2, tile.size / 2.5, 2 * Math.PI, false)
+          this.ctx.arc(piece.col * tile.size + tile.size / 2, piece.row * tile.size + tile.size / 2, tile.size / 2.5, 2 * Math.PI, false)
           this.ctx.fillStyle = piece.color
           this.ctx.fill()
           this.ctx.lineWidth = 3
