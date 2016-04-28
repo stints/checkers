@@ -5,14 +5,61 @@ class Game {
     this.canvas = document.getElementById(id)
     this.ctx = this.canvas.getContext( "2d" )
     board = new Board(this.ctx, this.canvas)
+    this.listeners = new Listeners(this)
   }
 
   setup() {
-    board.initPieces()
+    board.setup()
+    this.listeners.setup()
   }
 
   static update() {
     board.draw()
+
+    window.requestAnimationFrame(Game.update)
+  }
+}
+
+class Listeners {
+  constructor(game) {
+    this.game = game
+    this.canvas = game.canvas
+  }
+
+  setup() {
+    this.canvas.addEventListener("mousemove", this.mouseMove)
+    this.canvas.addEventListener("click", this.mouseClick)
+  }
+
+  mouseMove(e) {
+    var rect = this.getBoundingClientRect()
+    var info = document.getElementById("hover-info")
+    var x = (e.clientX - rect.left)
+    var y = (e.clientY - rect.top)
+    var msg = x + ", " + y
+    for(var row = 0; row < board.rows; row++) {
+      for(var col = 0; col < board.columns; col++) {
+        var tile = board.tiles[row][col]
+        tile.highlight = tile.entered(x,y)
+        if(tile.highlight && tile.piece !== undefined) {
+          msg += " PIECE DETECTED"
+        }
+      }
+    }
+    info.innerHTML = msg
+  }
+
+  mouseClick(e) {
+    console.log("clicked")
+    var rect = this.getBoundingClientRect()
+    var x = (e.clientX - rect.left)
+    var y = (e.clientY - rect.top)
+    for(var row = 0; row < board.rows; row++) {
+      for(var col = 0; col < board.columns; col++) {
+        var tile = board.tiles[row][col]
+        tile.clicked = tile.entered(x,y)
+      }
+    }
   }
 }
 
@@ -34,7 +81,7 @@ class Board {
     }
   }
 
-  initPieces() {
+  setup() {
     this.removePieces()
     for(var player = 0; player < 2; player++) {
       var row = 0
@@ -80,6 +127,15 @@ class Board {
         this.ctx.rect(tile.x, tile.y, tile.size, tile.size)
         this.ctx.fillStyle = tile.color
         this.ctx.fill()
+        if(tile.clicked) {
+          this.ctx.lineWidth = 2
+          this.ctx.strokeStyle = "blue"
+          this.ctx.stroke()
+        } else if(tile.highlight) {
+          this.ctx.lineWidth = 2
+          this.ctx.strokeStyle = "orange"
+          this.ctx.stroke()
+        }
 
         if (tile.piece !== undefined) {
           var piece = tile.piece
@@ -87,9 +143,11 @@ class Board {
           this.ctx.arc(piece.col * tile.size + tile.size / 2, piece.row * tile.size + tile.size / 2, tile.size / 2.5, 2 * Math.PI, false)
           this.ctx.fillStyle = piece.color
           this.ctx.fill()
+          /*
           this.ctx.lineWidth = 3
           this.ctx.strokeStyle = "black"
           this.ctx.stroke()
+          */
         }
       }
     }
@@ -115,5 +173,11 @@ class Tile {
     this.size = size
 
     this.piece = undefined
+    this.highlight = false
+    this.clicked = false
+  }
+
+  entered(x, y) {
+    return this.x <= x && this.x + this.size >= x && this.y <= y && this.y + this.size >= y
   }
 }
