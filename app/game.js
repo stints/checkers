@@ -53,8 +53,8 @@ class Game {
     for(var row = 0; row < 8; row++) {
       this._board[row] = new Array(8);
       for(var col = 0; col < 8; col++) {
-        var color = (row + col) % 2 ? "yellow" : "green"
-        var tile = new Tile(row, col, color)
+        var img = (row + col) % 2 ? "res/darkwoodtile.png" : "res/lightwoodtile.png"
+        var tile = new Tile(row, col, img)
         this._board[row][col] = tile
       }
     }
@@ -274,13 +274,14 @@ class Piece {
 }
 
 class Tile {
-  constructor(row, col, color) {
+  constructor(row, col, imgSrc) {
     this._row = row;
     this._col = col;
-    this._color = color;
     this._piece = null;
     this._width = 75;
     this._height = 75;
+    this._img = new Image()
+    this._img.src = imgSrc;
   }
 
   get piece() {
@@ -302,15 +303,8 @@ class Tile {
   draw(ctx, highlight) {
     var x = this._col * this._width;
     var y = this._row * this._height;
-    ctx.beginPath();
-    ctx.rect(x, y, this._width, this._height);
-    ctx.fillStyle = this._color;
-    ctx.fill();
-    if(!highlight) {
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "black";
-      ctx.stroke();
-    } else {
+    ctx.drawImage(this._img, 0, 0, this._width, this._height, x, y, this._width, this._height);
+    if(highlight) {
       ctx.lineWidth = 4;
       ctx.strokeStyle = "blue";
       ctx.stroke();
