@@ -1,7 +1,6 @@
 class Player {
-  constructor(name, color) {
+  constructor(name) {
     this._name = name;
-    this._color = color;
     this._pieces = [];
   }
 
@@ -35,8 +34,8 @@ class Game {
 
   setup() {
     // Create players
-    this._players[0] = new Player("player one", "red");
-    this._players[1] = new Player("player two", "white");
+    this._players[0] = new Player("player one");
+    this._players[1] = new Player("player two");
     this._currentPlayer = this._players[0];
 
     // Create pieces and add to player
@@ -44,6 +43,8 @@ class Game {
       var player = this._players[i];
       for(var j = 0; j < 12; j++) {
         var piece = new Piece(player, (i+1)-(i*3));
+        piece.image = i == 0 ? "res/redpiece.png" : "res/whitepiece.png";
+        piece.imageKing = i == 0 ? "res/redpiece_king.png" : "res/whitepiece_king.png";
         this._pieces.push(piece);
         player.addPiece(piece);
       }
@@ -211,6 +212,16 @@ class Piece {
     this._move = 1;
     this._rowDirection = direction;
     this._selected = false;
+    this._img = new Image();
+    this._imgKing = new Image();
+  }
+
+  set image(imgSrc) {
+    this._img.src = imgSrc;
+  }
+
+  set imageKing(imgSrc) {
+    this._imgKing.src = imgSrc;
   }
 
   set selected(select) {
@@ -264,12 +275,13 @@ class Piece {
   }
 
   draw(ctx) {
-    var x = this._col * this._tile.width + this._tile.width / 2;
-    var y = this._row * this._tile.height + this._tile.width / 2;
-    ctx.beginPath();
-    ctx.arc(x, y, 25, 2 * Math.PI, false);
-    ctx.fillStyle = this._player.pieceColor;
-    ctx.fill();
+    var x = this._col * this._tile.width;
+    var y = this._row * this._tile.height;
+    if(!this._king) {
+      ctx.drawImage(this._img, 0, 0, 75, 75, x, y, 75, 75)
+    } else {
+      ctx.drawImage(this._imgKing, 0, 0, 75, 75, x, y, 75, 75)
+    }
   }
 }
 
@@ -305,9 +317,10 @@ class Tile {
     var y = this._row * this._height;
     ctx.drawImage(this._img, 0, 0, this._width, this._height, x, y, this._width, this._height);
     if(highlight) {
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = "blue";
-      ctx.stroke();
+      ctx.beginPath();
+      ctx.fillStyle = "rgba(0, 0, 255, 0.3)";
+      ctx.fillRect(x, y, this._width, this._height);
+      ctx.closePath();
     }
   }
 
