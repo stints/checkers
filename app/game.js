@@ -112,7 +112,7 @@ class Game {
             var piece = tile.piece;
             this._movePiece = piece;
             piece.selected = true;
-            this._availableMoves = this.findLegalJumps(piece.legalMoves());
+            this._availableMoves = this.jumpPath((new Node(tile)));
           }
         } else {
           // Where should we move the move piece?
@@ -134,19 +134,21 @@ class Game {
   }
 
   // returns an array of tiles that the selected piece can jump
-  // first given a list of legal moves given by the piece
-  findLegalJumps(moves) {
-    var tiles = [];
-    var row = 0;
-    var col = 0;
-    for(var i = 0; i < moves.length; i++) {
-      row = moves[i][0];
-      col = moves[i][1];
+  // the starting node is always the current tile
+  // by default, do not add the node into the paths
+  jumpPath(node) {
+    paths = []
+    nextNodes = node.tile.legalMoves();
+    for(var i = 0; i < nextNodes.length; i++) {
+      var row = nextNodes[i][0];
+      var col = nextNodes[i][1];
       var tile = this._board[row][col];
-      tiles.push(tile);
-    }
 
-    return tiles;
+      // Is there a piece in this tile that does not belong to the current player?
+      if(tile.hasPiece() && !tile.piece.isSamePlayer(this._currentPlayer)) {
+          paths.push([])
+      }
+    }
   }
 
   handleHover(e) {
@@ -201,6 +203,18 @@ class Game {
   }
 }
 
+// A node is a single tile a selected piece can jump to, any number in an array creates a path
+class Node {
+  constructor(tile) {
+    this._tile = tile;
+    this._prev = null;
+  }
+
+  set prev(tile) {
+    this._prev = tile;
+  }
+}
+
 class Piece {
   constructor(player, direction) {
     this._row = -1;
@@ -214,6 +228,10 @@ class Piece {
     this._selected = false;
     this._img = new Image();
     this._imgKing = new Image();
+  }
+
+  isSamePlayer(player) {
+    return player === this._player;
   }
 
   set image(imgSrc) {
@@ -296,6 +314,10 @@ class Tile {
     this._img.src = imgSrc;
   }
 
+  hasPiece() {
+    return this.__piece === null;
+  }
+
   get piece() {
     return this._piece;
   }
@@ -329,6 +351,14 @@ class Tile {
         && (this._row * this._height + this._height) > y
         && (this._col * this._width) < x
         && (this._col * this._width + this._width) > x
+  }
+
+  // find the direction from the tile argument
+  // eg - this 1,1 and tile 2,0
+  //      direction +1, -1
+  direction(tile) {
+    var direction = new Array(2);
+    direction[0] = this._row 
   }
 }
 
