@@ -112,7 +112,7 @@ class Game {
             var piece = tile.piece;
             this._movePiece = piece;
             piece.selected = true;
-            this._availableMoves = this.jumpPath((new Node(tile)));
+            this._availableMoves = this.jumpPath(tile);
           }
         } else {
           // Where should we move the move piece?
@@ -124,7 +124,7 @@ class Game {
               this._movePiece = null;
               piece.selected = false;
               this._availableMoves = false;
-            } else if(contains(this._availableMoves, tile)) {
+            } else if(containsNode(this._availableMoves, tile)) {
               this._moveSpot = tile;
             }
           }
@@ -136,19 +136,55 @@ class Game {
   // returns an array of tiles that the selected piece can jump
   // the starting node is always the current tile
   // by default, do not add the node into the paths
-  jumpPath(node) {
-    paths = []
-    nextNodes = node.tile.legalMoves();
-    for(var i = 0; i < nextNodes.length; i++) {
-      var row = nextNodes[i][0];
-      var col = nextNodes[i][1];
-      var tile = this._board[row][col];
-
-      // Is there a piece in this tile that does not belong to the current player?
-      if(tile.hasPiece() && !tile.piece.isSamePlayer(this._currentPlayer)) {
-          paths.push([])
+  jumpPath(tile, lastNode = null, direction = null, fromJump = false) {
+    var paths = []
+    var node = new Node(tile);
+    if(lastNode != null) {
+      node.prev = lastNode;
+    }
+    if(fromJump) {
+      node._jumped = lastNode._tile.piece;
+    }
+    if(direction == null && !fromJump) {
+      var nextMoves = tile.legalMoves(this._movePiece);
+      for(var i = 0; i < nextMoves.length; i++) {
+        var row = nextMoves[i][0];
+        var col = nextMoves[i][1];
+        var nextTile = this._board[row][col];
+        // Is there a piece in this tile that does not belong to the current player?
+        if(nextTile.hasPiece() && !nextTile.piece.isSamePlayer(this._currentPlayer)) {
+          var nextPaths = this.jumpPath(nextTile, node, nextTile.direction(tile)); // can we continue
+          if(nextPaths.length) {
+            paths = paths.concat(nextPaths);
+          }
+        } else if(nextTile.hasPiece() && nextTile.piece.isSamePlayer(this._currentPlayer)) {
+          // do nothing
+        } else {
+          var nextNode = new Node(nextTile);
+          nextNode.prev = node;
+          paths.push(nextNode);
+        }
+      }
+    } else { // We're in the process of a jump
+      if(direction != null) {
+        var row = tile._row + direction[0];
+        var col = tile._col + direction[1];
+        if(row >= 0 && row <= 7 && col >= 0 && col <= 7) {
+          var nextTile = this._board[row][col];
+          if(!nextTile.hasPiece()) { // we can make a jump!
+            //paths.push(node);
+            var nextPaths = this.jumpPath(nextTile, node, null, true);
+            if(nextPaths.length) {
+              paths = paths.concat(nextPaths);
+            }
+          }
+        }
+      } else { // we're from a previous successful jump and can only continue jumps
+        // multijump
+        paths.push(node);
       }
     }
+    return paths;
   }
 
   handleHover(e) {
@@ -189,7 +225,7 @@ class Game {
     // draw board
     for(var row = 0; row < 8; row++) {
       for(var col = 0; col < 8; col++) {
-        var highlight = contains(this._availableMoves, this._board[row][col]);
+        var highlight = containsNode(this._availableMoves, this._board[row][col]);
         this._board[row][col].draw(this._ctx, highlight);
       }
     }
@@ -207,11 +243,16 @@ class Game {
 class Node {
   constructor(tile) {
     this._tile = tile;
-    this._prev = null;
+    this._prevNode = null;
+    this._jumped = null;
   }
 
-  set prev(tile) {
-    this._prev = tile;
+  set prev(node) {
+    this._prevNode = node;
+  }
+
+  jumped(piece) {
+    this._jumped = piece;
   }
 }
 
@@ -267,31 +308,6 @@ class Piece {
     this._tile.piece = null;
   }
 
-  // A guess at legal moves allowed, does not take into account other pieces
-  legalMoves() {
-    var moves = [];
-    var moveRow = this._row + this._rowDirection;
-    if((this._rowDirection == 1 && moveRow <= 7) || (this._rowDirection == -1 && moveRow >= 0)) {
-      if(this._col + 1 <= 7) {
-        moves.push([moveRow, this._col + 1]);
-      }
-      if(this._col - 1 >= 0) {
-        moves.push([moveRow, this._col - 1]);
-      }
-    }
-
-    if(this._king) {
-      moveRow = this._row + (-1 * this._rowDirection);
-      if(this._col + 1 <= 7) {
-        moves.push([moveRow, this._col + 1]);
-      }
-      if(this._col - 1 >= 0) {
-        moves.push([moveRow, this._col - 1]);
-      }
-    }
-    return moves;
-  }
-
   draw(ctx) {
     var x = this._col * this._tile.width;
     var y = this._row * this._tile.height;
@@ -314,8 +330,33 @@ class Tile {
     this._img.src = imgSrc;
   }
 
+  // A guess at legal moves allowed, does not take into account other pieces
+  legalMoves(piece) {
+    var moves = [];
+    var moveRow = this._row + piece._rowDirection;
+    if((piece._rowDirection == 1 && moveRow <= 7) || (piece._rowDirection == -1 && moveRow >= 0)) {
+      if(this._col + 1 <= 7) {
+        moves.push([moveRow, this._col + 1]);
+      }
+      if(this._col - 1 >= 0) {
+        moves.push([moveRow, this._col - 1]);
+      }
+    }
+
+    if(piece._king) {
+      moveRow = this._row + (-1 * piece._rowDirection);
+      if(this._col + 1 <= 7) {
+        moves.push([moveRow, this._col + 1]);
+      }
+      if(this._col - 1 >= 0) {
+        moves.push([moveRow, this._col - 1]);
+      }
+    }
+    return moves;
+  }
+
   hasPiece() {
-    return this.__piece === null;
+    return this._piece != null;
   }
 
   get piece() {
@@ -358,14 +399,16 @@ class Tile {
   //      direction +1, -1
   direction(tile) {
     var direction = new Array(2);
-    direction[0] = this._row 
+    direction[0] = this._row - tile._row > 0 ? 1 : -1;
+    direction[1] = this._col - tile._col > 0 ? 1 : -1;
+    return direction;
   }
 }
 
 // Find if object in Array
-function contains(array, obj) {
+function containsNode(array, obj) {
   for(var i = 0; i < array.length; i++) {
-    if(array[i] === obj) {
+    if(array[i]._tile === obj) {
       return true;
     }
   }
