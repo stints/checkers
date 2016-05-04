@@ -27,9 +27,13 @@ class Game {
 
 
     this._currentPlayer = null
+    this._otherPlayer = null
     this._movePiece = null // The piece to move
     this._availableMoves = [] // Tiles the movePiece can jump to
     this._moveSpot = null // The tile to move to
+
+    this._requestID = 0;
+    this._winner = null;
   }
 
   setup() {
@@ -37,6 +41,7 @@ class Game {
     this._players[0] = new Player("player one");
     this._players[1] = new Player("player two");
     this._currentPlayer = this._players[0];
+    this._otherPlayer = this._players[1];
 
     // Create pieces and add to player
     for(var i = 0; i < this._players.length; i++) {
@@ -94,6 +99,18 @@ class Game {
     this._canvas.addEventListener("click", e => this.handleClick(e));
     // Hover handler
     this._canvas.addEventListener("mousemove", e => this.handleHover(e));
+
+    this.updateCurrentPlayerInfo();
+  }
+
+  updateCurrentPlayerInfo() {
+    var playerSpan = document.getElementById("current-player");
+    playerSpan.innerHTML = this._currentPlayer._name;
+  }
+
+  printWinner() {
+    var playerSpan = document.getElementById("current-player");
+    playerSpan.innerHTML = this._currentPlayer._name + " WINS!";
   }
 
   handleClick(e) {
@@ -146,7 +163,7 @@ class Game {
       node._jumped = lastNode._tile.piece;
     }
     if(direction == null && !fromJump) {
-      var nextMoves = tile.legalMoves(this._movePiece);
+      var nextMoves = tile.legalMoves(this._movePiece, false);
       for(var i = 0; i < nextMoves.length; i++) {
         var row = nextMoves[i][0];
         var col = nextMoves[i][1];
@@ -180,12 +197,15 @@ class Game {
           }
         }
       } else { // we're from a previous successful jump and can only continue jumps
-        // multijump
+        // handle potential multijump
         paths.push(node);
+
       }
     }
+
     return paths;
   }
+
 
   handleHover(e) {
     var info = document.getElementById("hover-info");
@@ -201,23 +221,68 @@ class Game {
     this._moveSpot = null;
     this._availableMoves = [];
     this._currentPlayer = this._currentPlayer == this._players[1] ? this._players[0] : this._players[1];
+    this._otherPlayer = this._currentPlayer == this._players[0] ? this._players[1] : this._players[0];
+    this.updateCurrentPlayerInfo();
+  }
+
+  stop() {
+    console.log('stopping game');
+    window.cancelAnimationFrame(this._requestID);
+    this.printWinner();
   }
 
   start() {
-    window.requestAnimationFrame(() => this.update());
+    this._requestID = window.requestAnimationFrame(() => this.update());
   }
 
   update() {
     this.draw();
     if(this._movePiece != null && this._moveSpot != null) {
+      var pathTaken = null;
+      for(var n = 0; n < this._availableMoves.length; n++) {
+        if(this._availableMoves[n]._tile === this._moveSpot) {
+          pathTaken = this._availableMoves[n];
+        }
+      }
+
+      var currentNode = pathTaken;
+      var jumpedPieces = []
+      while(!currentNode.isRoot()) {
+        if(currentNode.jumped != null) {
+          jumpedPieces.push(currentNode.jumped);
+        }
+        currentNode = currentNode.prev;
+      }
       var row = this._movePiece._row;
       var col = this._movePiece._col;
+
+      if(jumpedPieces.length > 0) {
+        for(var p = 0; p < jumpedPieces.length; p++) {
+          jumpedPieces[p].jumped();
+        }
+      }
+
+      var currentPieces = this._otherPlayer.pieces.filter(function(piece) {
+        return piece.inPlay
+      });
+
+      if(currentPieces.length == 0) { // gameover
+        console.log('gameover');
+        this._winner = this._currentPlayer;
+        this.stop();
+      }
+
       this._board[row][col].piece = null;
       this._moveSpot.piece = this._movePiece;
       this._movePiece.setPosition(this._moveSpot)
+
+      if(this._movePiece.checkKing()) {
+        this._movePiece.king();
+      }
+
       this.nextPlayer();
     }
-    window.requestAnimationFrame(() => this.update());
+    this._requestID = window.requestAnimationFrame(() => this.update());
   }
 
   draw() {
@@ -247,12 +312,24 @@ class Node {
     this._jumped = null;
   }
 
+  isRoot() {
+    return this._prevNode == null;
+  }
+
+  get prev() {
+    return this._prevNode;
+  }
+
   set prev(node) {
     this._prevNode = node;
   }
 
-  jumped(piece) {
+  set jumped(piece) {
     this._jumped = piece;
+  }
+
+  get jumped() {
+    return this._jumped;
   }
 }
 
@@ -308,6 +385,20 @@ class Piece {
     this._tile.piece = null;
   }
 
+  checkKing() {
+    if(!this._king) {
+      if(this._rowDirection == 1) {
+        return this._row == 7;
+      } else {
+        return this._row == 0;
+      }
+    }
+  }
+
+  king() {
+    this._king = true;
+  }
+
   draw(ctx) {
     var x = this._col * this._tile.width;
     var y = this._row * this._tile.height;
@@ -331,7 +422,7 @@ class Tile {
   }
 
   // A guess at legal moves allowed, does not take into account other pieces
-  legalMoves(piece) {
+  legalMoves(piece, fakeKing = false) {
     var moves = [];
     var moveRow = this._row + piece._rowDirection;
     if((piece._rowDirection == 1 && moveRow <= 7) || (piece._rowDirection == -1 && moveRow >= 0)) {
@@ -343,7 +434,7 @@ class Tile {
       }
     }
 
-    if(piece._king) {
+    if(piece._king || fakeKing) {
       moveRow = this._row + (-1 * piece._rowDirection);
       if(this._col + 1 <= 7) {
         moves.push([moveRow, this._col + 1]);
